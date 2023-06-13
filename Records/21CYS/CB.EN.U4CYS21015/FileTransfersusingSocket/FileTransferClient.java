@@ -1,71 +1,58 @@
+package com.amrita.jpl.cys21015.ex;
+
 import java.io.*;
 import java.net.Socket;
+import java.util.Scanner;
 
-interface FileTransferListener {
-    void onFileSent(String filename);
-    void onFileSaved(String filename);
-}
-
-abstract class FileTransfer {
-    public abstract void sendFile(String filename);
-    public abstract void saveFile(byte[] fileData, String filename);
-}
-
-public class FileTransferClient extends FileTransfer {
-    private Socket socket;
-    private FileTransferListener listener;
-
-    public FileTransferClient(FileTransferListener listener) {
-        this.listener = listener;
-    }
+public class FileTransferClient extends FileTransfer implements FileTransferListener {
 
     @Override
     public void sendFile(String filename) {
+        super.sendFile(filename);
+        // Implementation for sending the file to the server using socket programming
         try {
-            File file = new File(filename);
-            byte[] fileData = new byte[(int) file.length()];
-            FileInputStream fileInputStream = new FileInputStream(file);
-            fileInputStream.read(fileData);
-
-            socket = new Socket("localhost", 8080);
-
+            Socket socket = new Socket("localhost", 12345);
             OutputStream outputStream = socket.getOutputStream();
-            DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
-            dataOutputStream.writeUTF(file.getName());
-            dataOutputStream.writeLong(fileData.length);
-            dataOutputStream.write(fileData, 0, fileData.length);
-            dataOutputStream.flush();
+            FileInputStream fileInputStream = new FileInputStream(filename);
 
-            listener.onFileSent(file.getName());
+            byte[] buffer = new byte[1024];
+            int bytesRead;
+            while ((bytesRead = fileInputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, bytesRead);
+            }
 
-            dataOutputStream.close();
+            fileInputStream.close();
             outputStream.close();
             socket.close();
+
+            onFileSent(filename);
 
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    @Override
-    public void saveFile(byte[] fileData, String filename) {
-        // Client does not implement saving file on the server
+    public static void main(String[] args)
+    {
+        Scanner scanner = new Scanner(System.in);
+        System.out.print("Enter filename to send: ");
+        String filename = scanner.next();
+        FileTransferClient client = new FileTransferClient();
+        client.sendFile(filename);
     }
 
-    public static void main(String[] args) {
-        FileTransferListener listener = new FileTransferListener() {
-            @Override
-            public void onFileSent(String filename) {
-                System.out.println("File sent: " + filename);
-            }
+    @Override
+    public void saveFile(byte[] fileData, String filename){
+        // Not applicable for the client
+    }
 
-            @Override
-            public void onFileSaved(String filename) {
-                // Not used in the client
-            }
-        };
+    @Override
+    public void onFileSent(String filename) {
+        System.out.println("File sent: " + filename);
+    }
 
-        FileTransferClient client = new FileTransferClient(listener);
-        client.sendFile("E:\\Sample.txt");
+    @Override
+    public void onFileSaved(String filename) {
+        // Not applicable for the client
     }
 }

@@ -1,82 +1,66 @@
+package com.amrita.jpl.cys21015.ex;
+
 import java.io.*;
-import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.ServerSocket;
+import java.util.Scanner;
 
-public class FileTransferServer {
-    private ServerSocket serverSocket;
-    private Socket clientSocket;
-    private FileTransferListener listener;
-    private String saveDirectory;
+public class FileTransferServer extends FileTransfer implements FileTransferListener {
 
-    public FileTransferServer(FileTransferListener listener, String saveDirectory) {
-        this.listener = listener;
-        this.saveDirectory = saveDirectory;
-    }
-
-    public void sendFile(String filename) {
-        // Server does not implement sending files
-    }
-
-    public void saveFile(byte[] fileData, String filename) {
-        String filePath = saveDirectory + File.separator + filename; // Create the full file path
+    public byte[] start()
+    {
         try {
-            FileOutputStream fileOutputStream = new FileOutputStream(filePath);
-            fileOutputStream.write(fileData);
-            fileOutputStream.close();
+            ServerSocket serverSocket = new ServerSocket(12345);
+            System.out.println("Server started and listening on port 12345...");
 
-            listener.onFileSaved(filePath);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
+            Socket clientSocket = serverSocket.accept();
+            System.out.println("Client connected.");
 
-    public void start() {
-        try {
-            serverSocket = new ServerSocket(8080);
-            System.out.println("Server started. Listening on port 8080...");
+            byte[] buffer = new byte[1024];
+            int bytesRead;
+            InputStream inputStream = clientSocket.getInputStream();
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                byteArrayOutputStream.write(buffer, 0, bytesRead);
+            }
 
-            clientSocket = serverSocket.accept();
-            saveFileFromSocket(clientSocket);
+            return byteArrayOutputStream.toByteArray();
 
         } catch (IOException e) {
             e.printStackTrace();
-        }
-    }
 
-    private void saveFileFromSocket(Socket socket) {
-        try {
-            DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
-
-            String filename = dataInputStream.readUTF();
-            long fileSize = dataInputStream.readLong();
-            byte[] fileData = new byte[(int) fileSize];
-            dataInputStream.readFully(fileData);
-
-            saveFile(fileData, filename);
-
-            dataInputStream.close();
-            socket.close();
-
-        } catch (IOException e) {
-            e.printStackTrace();
+            return new byte[0];
         }
     }
 
     public static void main(String[] args) {
-        String saveDirectory = "E:\\SEM-4"; // Specify the desired save directory
-        FileTransferListener listener = new FileTransferListener() {
-            @Override
-            public void onFileSent(String filename) {
-                // Not used in the server
-            }
+        FileTransferServer server = new FileTransferServer();
+        byte[] fileData = server.start();
+        Scanner scanner = new Scanner(System.in);
+        System.out.print("Save as filename: ");
+        String filename = scanner.next();
+        server.saveFile(fileData,filename);
+    }
 
-            @Override
-            public void onFileSaved(String filename) {
-                System.out.println("File saved: " + filename);
-            }
-        };
+    @Override
+    public void saveFile(byte[] fileData, String filename) {
 
-        FileTransferServer server = new FileTransferServer(listener, saveDirectory);
-        server.start();
+        try (FileOutputStream fileOutputStream = new FileOutputStream(filename)) {
+            fileOutputStream.write(fileData);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        onFileSaved(filename);
+    }
+
+    @Override
+    public void onFileSent(String filename) {
+        // not applicable for server
+    }
+
+    @Override
+    public void onFileSaved(String filename) {
+        System.out.println("File saved: " + filename);
     }
 }
